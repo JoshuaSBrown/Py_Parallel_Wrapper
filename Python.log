@@ -1,0 +1,45 @@
+Program es
+Num Pararallel Runs <Synchronized wrapper for c_int(4)>
+Run Number 4
+test arguments -d folderPAR
+Executable directory ['None']Beginning Parallel Loop
+k value 0
+ExeVariable test
+ArgVariable -d folder0
+In CheckMemoryLoop
+In CheckMemory
+Returned from CheckMemory
+Returned from CheckMemoryLoop
+k value Actually launched 0
+ArgVariable -d folder0
+ArgVariable -d folder0
+k value 1
+ExeVariable test
+ArgVariable -d folder1
+In CheckMemoryLoop
+In CheckMemory
+Returned from CheckMemory
+Returned from CheckMemoryLoop
+k value Actually launched 1
+ArgVariable -d folder1
+ArgVariable -d folder1
+k value 2
+ExeVariable test
+ArgVariable -d folder2
+In CheckMemoryLoop
+In CheckMemory
+Returned from CheckMemory
+Returned from CheckMemoryLoop
+k value Actually launched 2
+ArgVariable -d folder2
+ArgVariable -d folder2
+k value 3
+ExeVariable test
+ArgVariable -d folder3
+In CheckMemoryLoop
+In CheckMemory
+Returned from CheckMemory
+Returned from CheckMemoryLoop
+k value Actually launched 3
+ArgVariable -d folder3
+ArgVariable -d folder3

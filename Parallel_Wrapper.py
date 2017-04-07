@@ -26,8 +26,14 @@ import os,             \
 from multiprocessing import Pool, Value, Lock
 
 ###############################################################################
-#Functions
+# Functions
+###############################################################################
 
+# This function works by examing the output from top. Top is a standard linux
+# shell command often used to monitor memroy and tasks being performed by the
+# system. CheckMemory will look to see what other instances of the executable
+# are being run in parallel (ExeVariable). It will then monitor the memory to
+# ensure that the memory of the combined runs are not exceeding the constraints
 def CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high, count,ExeVariable):
 	f=open('Python.log','a')
 	f.write("In CheckMemory\n")
@@ -198,6 +204,9 @@ def CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high, count,ExeVariable):
 
 	return AvgMeanMemoryUsed, MemoryTotUsed, MemoryLarge, num, high, count
 
+# This function continually checks the memory if it discovers that the memory
+# limits have not been exceeded and that there is room to submit another job
+# it exits the loop
 def CheckMemoryLoop(AvgMeanMemoryUsed,NumPar,MemPerProc, high,ExeVariable):
 	f=open('Python.log','a')
 	f.write("In CheckMemoryLoop\n")
@@ -240,13 +249,16 @@ def CheckMemoryLoop(AvgMeanMemoryUsed,NumPar,MemPerProc, high,ExeVariable):
 
 	return AvgMeanMemoryUsed, num, high ,MemoryTotUsed, Check
 
+# Simulate will call the executable to be run in parallel after checking to see
+# if there is adequate room in the memory to call another instance of the
+# executable.
 def Simulate( ArgVariable,ExeVariable, k):
 	l.acquire()
 	time.sleep(10)
 	f=open('Python.log','a')
 	f.write("k value "+str(k)+"\n")
 	f.write("ExeVariable "+str(ExeVariable[0])+"\n")
-	f.write("ArgVariable "+str(ArgVariable)+"\n")
+	f.write("ArgVariable "+str(ArgVariable[k])+"\n")
 	f.close()
 	add = CheckMemoryLoop(AvgMeanMemoryUsed.value,TotalParallelProc.value,MemPerProc.value,high.value,ExeVariable)
 	f=open('Python.log','a')
@@ -262,10 +274,16 @@ def Simulate( ArgVariable,ExeVariable, k):
 	if (MemoryTotUsed/1000+Check)<float(TotalParallelProc.value)*float(MemPerProc.value)*1000:
 		f=open('Python.log','a')
 		f.write("k value Actually launched "+str(k)+"\n")
-		f.write("ArgVariable "+str(ArgVariable)[-1:1]+"\n")
-		f.close()
-		out=subprocess.Popen(['./test',str(ArgVariable)[-1:1]],stdout=subprocess.PIPE).communicate()[0]
+		f.write("ArgVariable "+str(ArgVariable[k])+"\n")
+        a, b = ArgVariable[k].split(" ")
+        f.write("ArgVariable "+a+" "+b+"\n")
+        f.close()
+        out=subprocess.Popen(["./"+ExeVariable[0],str(a),str(b)],stdout=subprocess.PIPE).communicate()[0]
 	return out
+
+###############################################################################
+# Implementation
+###############################################################################
 
 ###############################################################################
 # Step 1 Parse Arguments
@@ -279,15 +297,28 @@ parser.add_argument('--num_proc',nargs=1,type=int,default=1,help='The number '+\
 parser.add_argument('--memory',nargs=1,type=int,default=2000,help='The amount'+\
 ' of memory that will be allocated for each processor in units of MB')
 parser.add_argument('--num_runs',nargs=1,type=int,default=1,help='The (amount'+\
-' of work)/(number of runs) that needs to be done. If num_runs is 4 and '+\
-'num_proc is 4 then all runs will occur at the same time. However, if '+\
+' of work)/(number of runs) that needs to be done. If num_runs is 4 and '     +\
+'num_proc is 4 then all runs will occur at the same time. However, if '       +\
 'num_runs is 10 and num_procs is still 4 then at most 4 runs will occur at a '+\
 'time until all the runs are finished')
 parser.add_argument('--run_file',nargs=1,required=True,help='The name of the '+\
 'executable that is to be run in parallel.')
-parser.add_argument('--run_args',nargs=1,default="",help='The arguments that will be '+\
-'passed to the executable')
+parser.add_argument('--run_args',nargs=1,default="",help='The arguments that '+\
+'will be passed to the executable. Note that if your file outputs to a file ' +\
+'they will all write to the same files. To identify each run to a sperate '   +\
+'file the PAR keyword can be used anywhere in the command line options. Where'+\
+' it is used it will be replaced with a number unique to the run id.')
+parser.add_argument('--run_dir',nargs=1,help='The name of the folder where '  +\
+'the executable will be run. Similar to the executable arguments if you want' +\
+' to specify a unique directory for each run you can use the PAR keywork '    +\
+'which will be replaced with a number unique to the run')
 args = parser.parse_args()
+
+# Check that executable exists
+print args.run_file[0]
+if os.path.isfile(args.run_file[0]) is False:
+    print "ERROR file "+args.run_file[0]+" does not exist"
+    sys.exit()
 
 ###############################################################################
 # Step 2 Declare variables
@@ -297,42 +328,63 @@ args = parser.parse_args()
 AvgMeanMemoryUsed = Value('d',0.0)
 TotalParallelProc = Value('d',0.0)
 TotalMemory       = Value('d',0.0)
-# Number of available processors
-NumPar            = Value('i',int(args.num_proc[0]))
 #Value used to see if the memory is at the threshold
-high              = Value('d',0.0)
+high   = Value('d',0.0)
+# Number of available processors
+if isinstance( args.num_proc, int):
+    NumPar = Value('i',args.num_proc)
+else:
+    NumPar = Value('i',int(args.num_proc[0]))
+
 # Memory per processor this is based on the system architecture of the HPC given
 # in giga bytes
-MemPerProc        = Value('d',float(args.memory)/1000.00)
+if isinstance( args.memory, int):
+    MemPerProc = Value('d',float(args.memory)/1000.00)
+else:
+    MemPerProc = Value('d',float(args.memory[0])/1000.00)
 
 # The program to be run
 ProgramRun = args.run_file[0]
 # Number of runs
-NumRun = int(args.num_runs[0])
+if isinstance( args.num_runs, int):
+    NumRun = args.num_runs
+else:
+    NumRun = int(args.num_runs[0])
 
 manager     = multiprocessing.Manager()
 ArgVariable = manager.list()
 ExeVariable = manager.list()
-# Arguments that are passed to ProgramRun
-ArgVariable.append(str(args.run_args))
-ExeVariable.append(str(ProgramRun))
+DirVariable = manager.list()
 
+# Arguments that are passed to ProgramRun
+if isinstance( args.run_args, str):
+    Args = args.run_args
+else:
+    Args = args.run_args[0]
+
+#ArgVariable.append(str(args.run_args))
+ExeVariable.append(str(ProgramRun))
+DirVariable.append(str(args.run_dir))
 ###############################################################################
 # Step 3 Writing to Python log file
 f = open('Python.log','w')
 f.write("Program "+str(ProgramRun)[1:-1]+"\n")
 f.write("Num Pararallel Runs "+str(NumPar)+"\n")
 f.write("Run Number "+str(NumRun)+"\n")
-f.write(str(ProgramRun)+" arguments "+str(ArgVariable)+"\n")
+f.write(str(ProgramRun)+" arguments "+str(Args)+"\n")
+f.write("Executable directory "+str(DirVariable))
+
 #Total Memory currently being used by ProgramRun
 MemoryTot = 0
 
+# Remove Memory.log file if it exists in current directory
 try:
 	os.remove('Memory.log')
 except OSError:
 	pass
 
 l = Lock()
+
 ###############################################################################
 # Step 4 Beginning Setup
 # Check to see if there are already jobs with the same executable running on the
@@ -351,14 +403,15 @@ Memory=filter(None, Memory)
 #num is equivalent to the number of processes running on the node
 num=int(len(Memory))-1
 
-# Seeing if directory exists if not create one
+# Creating invisible directory in home directory. This folder is used to store
+# information related to what host are being used as well as the amount of
+# memory and processors being currently used
 if not os.path.isdir(HomeDir+"/."+str(ProgramRun)):
 	os.mkdir(HomeDir+"/."+str(ProgramRun))
 
 # Total allowed memory for the currently submitted job
 TotalMemory = MemPerProc.value*NumPar.value
 MaxMemory   = MemPerProc.value*NumPar.value
-
 
 # If a file exists within the home directory with the name of the host and there
 # are currently processors running with the same name of the current executable
@@ -396,13 +449,21 @@ else:
 	TotalParallelProc.value=float(NumPar.value)
 	f2.close()
 
+###############################################################################
+# Step 5 Calling Main
+
 print "Before Main"
 f.write("Beginning Parallel Loop\n")
 f.close()
+# The main function executes and runs in parallel by cycling through the
+# available processors. It will continue to submit jobs until all of the
+# processors are busy. It will then wait to submit the next job in the pool.
 if __name__ == '__main__':
 	pool=Pool(processes=NumPar.value)
 	for k in range(0 ,NumRun):
-		pool.apply_async(Simulate,args=(ArgVariable,ExeVariable,k))
+            if Args:
+                ArgVariable.append(Args.replace("PAR",str(k)))
+            pool.apply_async(Simulate,args=(ArgVariable,ExeVariable,k))
 
 pool.close()
 pool.join()

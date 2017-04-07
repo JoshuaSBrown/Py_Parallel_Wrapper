@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -7,8 +9,11 @@
 #include <unistd.h>
 #endif
 
-int main(void){
+int main(int argc, char * argv[]){
 
+    if (argc==3) {
+      mkdir(argv[2], 0777);
+    }
     int size = 500000000;
 
     int * ar = (int *) malloc(size*sizeof(int));
