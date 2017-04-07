@@ -13,7 +13,7 @@ int main(void){
 
     int * ar = (int *) malloc(size*sizeof(int));
 
-    int pollingDelay = 20000;
+    int pollingDelay = 20000000;
 
     int i = 0;
     for(;i<size;i++){
@@ -23,7 +23,7 @@ int main(void){
     #ifdef _WIN32
     sleep(pollingDelay);
     #else
-    usleep(pollingDelay*1000);  /* sleep for 100 milliSeconds */
+    usleep(pollingDelay);  /* sleep for 100 milliSeconds */
     #endif
 
     free(ar);
