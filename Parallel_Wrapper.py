@@ -269,7 +269,6 @@ def CheckMemoryLoop(AvgMeanMemoryUsed,NumPar,MemPerProc, high,ExeVariable,OrigDi
 def Simulate( ArgVariable,ExeVariable,DirVariable, k,OrigDirs):
 
     try:
-
         if  DirVariable[k]:
             if not os.path.exists(DirVariable[k]):
                 os.makedirs(DirVariable[k])
@@ -304,7 +303,13 @@ def Simulate( ArgVariable,ExeVariable,DirVariable, k,OrigDirs):
             f=open(OrigDirs+"/"+'Python.log','a')
             f.write("k value Actually launched "+str(k)+"\n")
             f.write("ArgVariable "+str(ArgVariable[k])+"\n")
-            a, b = ArgVariable[k].split(" ")
+            f.write("ExeVariable "+str(ExeVariable[0])+"\n")
+            if ArgVariable[k]:
+                a, b = ArgVariable[k].split(" ")
+            else:
+                a = ""
+                b = ""
+
             f.write("ArgVariable "+a+" "+b+"\n")
             f.close()
             if OrigDirs:
@@ -390,6 +395,11 @@ if isinstance( args.num_runs, int):
 else:
     NumRun = int(args.num_runs[0])
 
+
+# Update number of runs so it is at least equal to the number of processors
+if NumRun<NumPar:
+    NumRun = NumPar
+    
 manager     = multiprocessing.Manager()
 ArgVariable = manager.list()
 ExeVariable = manager.list()
@@ -497,6 +507,8 @@ else:
 # Step 5 Calling Main
 
 print "Before Main"
+print NumPar.value
+print NumRun
 f.write("Beginning Parallel Loop\n")
 f.close()
 # The main function executes and runs in parallel by cycling through the
@@ -505,14 +517,24 @@ f.close()
 if __name__ == '__main__':
 	pool=Pool(processes=NumPar.value)
 	for k in range(0 ,NumRun):
-
+            f = open('Python.log','a')
             OrigDirs = str(os.getcwd())
             if Args:
                 ArgVariable.append(Args.replace("PAR",str(k)))
+            else:
+                ArgVariable.append(Args)
 
             if Dirs:
                 DirVariable.append(Dirs.replace("PAR",str(k)))
+            else:
+                DirVariable.append(Dirs)
 
+            f.write("ArgVariable "+str(ArgVariable[k])+"\n")
+            f.write("Program in k range loop "+str(k)+"\n")
+            f.write("ExeVariable "+str(ExeVariable[0])+"\n")
+            f.write("DirVariable "+str(DirVariable[0])+"\n")
+            f.write("OrigDirs "+str(OrigDirs)+"\n")
+            f.close()
             pool.apply_async(Simulate,args=(ArgVariable,ExeVariable,DirVariable,k,OrigDirs))
 
 
