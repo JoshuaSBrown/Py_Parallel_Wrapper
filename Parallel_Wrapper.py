@@ -320,8 +320,8 @@ def Simulate( ArgVariable,ExeVariable,DirVariable, k,OrigDirs):
     except (KeyboardInterrupt, SystemExit):
         print "Exiting..."
 
-    #if  DirVariable[k]:
-    #    os.chdir(OrigDirs)
+    if  DirVariable[k]:
+        os.chdir(OrigDirs)
 
 	return out
 
@@ -377,9 +377,10 @@ high   = Value('d',0.0)
 # Number of available processors
 if isinstance( args.num_proc, int):
     NumPar = Value('i',args.num_proc)
+    NP = args.num_proc
 else:
     NumPar = Value('i',int(args.num_proc[0]))
-
+    NP = args.num_proc[0]
 # Memory per processor this is based on the system architecture of the HPC given
 # in giga bytes
 if isinstance( args.memory, int):
@@ -397,9 +398,11 @@ else:
 
 
 # Update number of runs so it is at least equal to the number of processors
-if NumRun<NumPar:
-    NumRun = NumPar
-    
+print NumRun
+print NP
+if NumRun<NP:
+    NumRun = NP
+
 manager     = multiprocessing.Manager()
 ArgVariable = manager.list()
 ExeVariable = manager.list()
