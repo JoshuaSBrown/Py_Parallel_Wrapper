@@ -9,4 +9,4 @@ test:test.c
 
 .PHONY : clean
 clean:
-	$(RM) -f *.o test
+	$(RM) -f *.o test Python.log Memory.log

@@ -34,8 +34,15 @@ from multiprocessing import Pool, Value, Lock
 # system. CheckMemory will look to see what other instances of the executable
 # are being run in parallel (ExeVariable). It will then monitor the memory to
 # ensure that the memory of the combined runs are not exceeding the constraints
-def CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high, count,ExeVariable):
-	f=open('Python.log','a')
+def CheckMemory(AvgMeanMemoryUsed,
+                NumPar           ,
+                MemPerProc       ,
+                high             ,
+                count            ,
+                ExeVariable      ,
+                OrigDirs         ):
+
+	f=open(OrigDirs+"/"+'Python.log','a')
 	f.write("In CheckMemory\n")
 	f.close()
 	#This is for the Memory that is allocated not necessarily the memory used
@@ -67,7 +74,7 @@ def CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high, count,ExeVariable):
 	MemoryUsed  = filter(None, MemoryUsed)
 	CheckVar    = int(len(MemoryUsed))
 
-	fi=open('Memory.log','a')
+	fi=open(OrigDirs+"/"+'Memory.log','a')
 	if float(num)!=-1:
 		fi.write(str(num))
 		fi.write('\n')
@@ -82,7 +89,7 @@ def CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high, count,ExeVariable):
  	fi.close()
 
 	if float(num)==-1:
-		fi=open('Memory.log','a')
+		fi=open(OrigDirs+"/"+'Memory.log','a')
 		fi.write("There are no running instances of "+ExeVariable[0]+"\n")
 		fi.write("Either the simulations have finished or   \n")
 		fi.write("they have crashed\n")
@@ -155,7 +162,7 @@ def CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high, count,ExeVariable):
 		#print MemoryTotUsed/1000+Check
 
 		#Comparison is in mB
-		fi=open('Memory.log','a')
+		fi=open(OrigDirs+"/"+'Memory.log','a')
 		if (MemoryTotUsed/1000+Check)<(float(NumPar)*MemPerProc*1000):
 			############################################################################
 			#Writing to Memory log file
@@ -187,7 +194,7 @@ def CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high, count,ExeVariable):
 		fi.close()
 	else:
 		MeanMemory=0
-		fi=open('Memory.log','a')
+		fi=open(OrigDirs+"/"+'Memory.log','a')
 		if float(high)/1000>float(NumPar)*MemPerProc*1000:
 			fi=open('Memory.log','a')
 			fi.write("\nThe job probably crashed: used resources\n")
@@ -207,13 +214,20 @@ def CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high, count,ExeVariable):
 # This function continually checks the memory if it discovers that the memory
 # limits have not been exceeded and that there is room to submit another job
 # it exits the loop
-def CheckMemoryLoop(AvgMeanMemoryUsed,NumPar,MemPerProc, high,ExeVariable):
-	f=open('Python.log','a')
+def CheckMemoryLoop(AvgMeanMemoryUsed,NumPar,MemPerProc, high,ExeVariable,OrigDirs):
+	f=open(OrigDirs+"/"+'Python.log','a')
 	f.write("In CheckMemoryLoop\n")
 	f.close()
 	count=0
-	output=CheckMemory(AvgMeanMemoryUsed, NumPar, MemPerProc, high,count,ExeVariable)
-	f=open('Python.log','a')
+	output=CheckMemory(AvgMeanMemoryUsed,
+                       NumPar           ,
+                       MemPerProc       ,
+                       high             ,
+                       count            ,
+                       ExeVariable      ,
+                       OrigDirs         )
+
+	f=open(OrigDirs+"/"+'Python.log','a')
 	f.write("Returned from CheckMemory\n")
 	f.close()
 	AvgMeanMemoryUsed = float(output[0])
@@ -238,7 +252,7 @@ def CheckMemoryLoop(AvgMeanMemoryUsed,NumPar,MemPerProc, high,ExeVariable):
 		high=float(output[4])
 		count=int(output[5])
 
-		fi=open('Memory.log','a')
+		fi=open(OrigDirs+"/"+'Memory.log','a')
 		fi.write("\nIn while loop count "+str(count)+"\n")
 		fi.close()
 
@@ -252,33 +266,58 @@ def CheckMemoryLoop(AvgMeanMemoryUsed,NumPar,MemPerProc, high,ExeVariable):
 # Simulate will call the executable to be run in parallel after checking to see
 # if there is adequate room in the memory to call another instance of the
 # executable.
-def Simulate( ArgVariable,ExeVariable, k):
-	l.acquire()
-	time.sleep(10)
-	f=open('Python.log','a')
-	f.write("k value "+str(k)+"\n")
-	f.write("ExeVariable "+str(ExeVariable[0])+"\n")
-	f.write("ArgVariable "+str(ArgVariable[k])+"\n")
-	f.close()
-	add = CheckMemoryLoop(AvgMeanMemoryUsed.value,TotalParallelProc.value,MemPerProc.value,high.value,ExeVariable)
-	f=open('Python.log','a')
-	f.write("Returned from CheckMemoryLoop\n")
-	f.close()
-	AvgMeanMemoryUsed.value=(AvgMeanMemoryUsed.value+float(add[0]))/2
-	num=float(add[1])
-	high.value=float(add[2])
-	MemoryTotUsed=float(add[3])
-	Check=float(add[4])
-	l.release()
-			#num=0 means the process crashed or finished really quickly
-	if (MemoryTotUsed/1000+Check)<float(TotalParallelProc.value)*float(MemPerProc.value)*1000:
-		f=open('Python.log','a')
-		f.write("k value Actually launched "+str(k)+"\n")
-		f.write("ArgVariable "+str(ArgVariable[k])+"\n")
-        a, b = ArgVariable[k].split(" ")
-        f.write("ArgVariable "+a+" "+b+"\n")
+def Simulate( ArgVariable,ExeVariable,DirVariable, k,OrigDirs):
+
+    try:
+
+        if  DirVariable[k]:
+            if not os.path.exists(DirVariable[k]):
+                os.makedirs(DirVariable[k])
+                os.chdir(DirVariable[k])
+
+        l.acquire()
+        time.sleep(10)
+        f=open(OrigDirs+"/"+'Python.log','a')
+        f.write("OrigDirs "+OrigDirs+"\n")
+        f.write("k value "+str(k)+"\n")
+        f.write("ExeVariable "+str(ExeVariable[0])+"\n")
+        f.write("ArgVariable "+str(ArgVariable[k])+"\n")
+        f.write("DirVariable "+str(DirVariable[k])+"\n")
         f.close()
-        out=subprocess.Popen(["./"+ExeVariable[0],str(a),str(b)],stdout=subprocess.PIPE).communicate()[0]
+        add = CheckMemoryLoop(AvgMeanMemoryUsed.value,
+                              TotalParallelProc.value,
+                              MemPerProc.value       ,
+                              high.value             ,
+                              ExeVariable            ,
+                              OrigDirs               )
+        f=open(OrigDirs+"/"+'Python.log','a')
+        f.write("Returned from CheckMemoryLoop\n")
+        f.close()
+        AvgMeanMemoryUsed.value=(AvgMeanMemoryUsed.value+float(add[0]))/2
+        num=float(add[1])
+        high.value=float(add[2])
+        MemoryTotUsed=float(add[3])
+        Check=float(add[4])
+        l.release()
+                #num=0 means the process crashed or finished really quickly
+        if (MemoryTotUsed/1000+Check)<float(TotalParallelProc.value)*float(MemPerProc.value)*1000:
+            f=open(OrigDirs+"/"+'Python.log','a')
+            f.write("k value Actually launched "+str(k)+"\n")
+            f.write("ArgVariable "+str(ArgVariable[k])+"\n")
+            a, b = ArgVariable[k].split(" ")
+            f.write("ArgVariable "+a+" "+b+"\n")
+            f.close()
+            if OrigDirs:
+                out=subprocess.Popen([OrigDirs+"/"+ExeVariable[0],str(a),str(b)],stdout=subprocess.PIPE).communicate()[0]
+            else:
+                out=subprocess.Popen(["./"+ExeVariable[0],str(a),str(b)],stdout=subprocess.PIPE).communicate()[0]
+
+    except (KeyboardInterrupt, SystemExit):
+        print "Exiting..."
+
+    #if  DirVariable[k]:
+    #    os.chdir(OrigDirs)
+
 	return out
 
 ###############################################################################
@@ -308,10 +347,10 @@ parser.add_argument('--run_args',nargs=1,default="",help='The arguments that '+\
 'they will all write to the same files. To identify each run to a sperate '   +\
 'file the PAR keyword can be used anywhere in the command line options. Where'+\
 ' it is used it will be replaced with a number unique to the run id.')
-parser.add_argument('--run_dir',nargs=1,help='The name of the folder where '  +\
-'the executable will be run. Similar to the executable arguments if you want' +\
-' to specify a unique directory for each run you can use the PAR keywork '    +\
-'which will be replaced with a number unique to the run')
+parser.add_argument('--run_dir',nargs=1,default="",help='The name of the '    +\
+'folder where the executable will be run. Similar to the executable arguments'+\
+' if you want to specify a unique directory for each run you can use the PAR' +\
+' keywork which will be replaced with a number unique to the run')
 args = parser.parse_args()
 
 # Check that executable exists
@@ -362,9 +401,14 @@ if isinstance( args.run_args, str):
 else:
     Args = args.run_args[0]
 
+# Check to see if a run directory has been specified
+if isinstance( args.run_dir, str):
+    Dirs = args.run_dir
+else:
+    Dirs = args.run_dir[0]
+
 #ArgVariable.append(str(args.run_args))
 ExeVariable.append(str(ProgramRun))
-DirVariable.append(str(args.run_dir))
 ###############################################################################
 # Step 3 Writing to Python log file
 f = open('Python.log','w')
@@ -372,7 +416,7 @@ f.write("Program "+str(ProgramRun)[1:-1]+"\n")
 f.write("Num Pararallel Runs "+str(NumPar)+"\n")
 f.write("Run Number "+str(NumRun)+"\n")
 f.write(str(ProgramRun)+" arguments "+str(Args)+"\n")
-f.write("Executable directory "+str(DirVariable))
+f.write("Executable directory "+str(Dirs)+"\n")
 
 #Total Memory currently being used by ProgramRun
 MemoryTot = 0
@@ -461,9 +505,16 @@ f.close()
 if __name__ == '__main__':
 	pool=Pool(processes=NumPar.value)
 	for k in range(0 ,NumRun):
+
+            OrigDirs = str(os.getcwd())
             if Args:
                 ArgVariable.append(Args.replace("PAR",str(k)))
-            pool.apply_async(Simulate,args=(ArgVariable,ExeVariable,k))
+
+            if Dirs:
+                DirVariable.append(Dirs.replace("PAR",str(k)))
+
+            pool.apply_async(Simulate,args=(ArgVariable,ExeVariable,DirVariable,k,OrigDirs))
+
 
 pool.close()
 pool.join()
